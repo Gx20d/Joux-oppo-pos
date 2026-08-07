@@ -35,17 +35,17 @@ class JouxOppoPOS extends StatelessWidget {
 
         "/": (context) => const LoginScreen(),
 
-        "/home": (context) => const HomeScreen(),
+        "/home": (context) =>  HomeScreen(),
 
-        "/products": (context) => const ProductsScreen(),
+        "/products": (context) =>  ProductsScreen(),
 
-        "/customers": (context) => const CustomersScreen(),
+        "/customers": (context) =>  CustomersScreen(),
 
-        "/suppliers": (context) => const SuppliersScreen(),
+        "/suppliers": (context) =>  SuppliersScreen(),
 
-        "/purchases": (context) => const PurchasesScreen(),
+        "/purchases": (context) =>  PurchasesScreen(),
 
-        "/sales": (context) => const SalesScreen(),
+        "/sales": (context) =>  SalesScreen(),
 
         "/sales_history": (context) =>
             const SalesHistoryScreen(),
