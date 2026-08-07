@@ -1,4 +1,4 @@
-package com.example.template
+package com.joux.oppo.pos
 
 import io.flutter.embedding.android.FlutterActivity
 
