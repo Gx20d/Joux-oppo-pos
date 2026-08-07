@@ -380,11 +380,13 @@ class _SalesScreenState
                               "المدفوع: ${sale["paid"]} جنيه",
                             ),
 
-                            Text(
-                              "المتبقي: ${sale["remaining"]} جنيه",
                            Text(
-                              "التاريخ: ${sale["date"]}",
-                            ),
+  "المتبقي: ${sale["remaining"]} جنيه",
+),
+
+Text(
+  "التاريخ: ${sale["date"]}",
+), 
 
                             if ((sale["notes"] ?? "")
                                 .toString()
