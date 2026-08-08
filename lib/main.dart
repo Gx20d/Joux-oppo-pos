@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'theme_controller.dart';
+
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/products_screen.dart';
@@ -10,7 +12,11 @@ import 'screens/sales_screen.dart';
 import 'screens/sales_history_screen.dart';
 import 'screens/purchase_history_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await ThemeController.instance.load();
+
   runApp(const JouxOppoPOS());
 }
 
@@ -19,41 +25,65 @@ class JouxOppoPOS extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Joux Oppo POS',
-            theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.green,
-        ),
-        useMaterial3: true,
-      ),
+    return AnimatedBuilder(
+      animation: ThemeController.instance,
 
-      initialRoute: "/",
+      builder: (context, _) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
 
-      routes: {
+          title: 'Joux Oppo POS',
 
-        "/": (context) => const LoginScreen(),
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.green,
+              brightness: Brightness.light,
+            ),
+            useMaterial3: true,
+          ),
 
-        "/home": (context) =>  HomeScreen(),
+          darkTheme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.green,
+              brightness: Brightness.dark,
+            ),
+            useMaterial3: true,
+          ),
 
-        "/products": (context) =>  ProductsScreen(),
+          themeMode:
+              ThemeController.instance.themeMode,
 
-        "/customers": (context) =>  CustomersScreen(),
+          initialRoute: "/",
 
-        "/suppliers": (context) =>  SuppliersScreen(),
+          routes: {
+            "/": (context) => const LoginScreen(),
 
-        "/purchases": (context) =>  PurchasesScreen(),
+            "/home": (context) =>
+                const HomeScreen(),
 
-        "/sales": (context) =>  SalesScreen(),
+            "/products": (context) =>
+                const ProductsScreen(),
 
-        "/sales_history": (context) =>
-            const SalesHistoryScreen(),
+            "/customers": (context) =>
+                const CustomersScreen(),
 
-        "/purchase_history": (context) =>
-            const PurchaseHistoryScreen(),
+            "/suppliers": (context) =>
+                const SuppliersScreen(),
 
+            "/purchases": (context) =>
+                const PurchasesScreen(),
+
+            "/sales": (context) =>
+                const SalesScreen(),
+
+            "/sales_history": (context) =>
+                const SalesHistoryScreen(),
+
+            "/purchase_history": (context) =>
+                const PurchaseHistoryScreen(),
+          },
+        );
       },
-          );
+    );
   }
 }
