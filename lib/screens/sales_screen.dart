@@ -6,13 +6,10 @@ class SalesScreen extends StatefulWidget {
   const SalesScreen({super.key});
 
   @override
-  State<SalesScreen> createState() =>
-      _SalesScreenState();
+  State<SalesScreen> createState() => _SalesScreenState();
 }
 
-class _SalesScreenState
-    extends State<SalesScreen> {
-
+class _SalesScreenState extends State<SalesScreen> {
   List<Map<String, dynamic>> sales = [];
   List<Map<String, dynamic>> customers = [];
   List<Map<String, dynamic>> products = [];
@@ -26,70 +23,62 @@ class _SalesScreenState
   }
 
   Future<void> loadData() async {
+    try {
+      final loadedSales =
+          await DatabaseHelper.instance.getSales();
 
-    sales = await DatabaseHelper.instance
-        .getSales();
+      final loadedCustomers =
+          await DatabaseHelper.instance.getCustomers();
 
-    customers =
-        await DatabaseHelper.instance
-            .getCustomers();
+      final loadedProducts =
+          await DatabaseHelper.instance.getProducts();
 
-    products =
-        await DatabaseHelper.instance
-            .getProducts();
+      if (!mounted) return;
 
-    if (!mounted) return;
+      setState(() {
+        sales = loadedSales;
+        customers = loadedCustomers;
+        products = loadedProducts;
+        loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
 
-    setState(() {
-      loading = false;
-    });
+      setState(() {
+        loading = false;
+      });
 
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("حدث خطأ أثناء تحميل المبيعات: $e"),
+        ),
+      );
+    }
   }
 
   Future<void> addSale() async {
-
     int? selectedCustomer;
     int? selectedProduct;
 
-    final quantityController =
-        TextEditingController();
-
-    final priceController =
-        TextEditingController();
-
-    final discountController =
-        TextEditingController();
-
-    final paidController =
-        TextEditingController();
-
-    final notesController =
-        TextEditingController();
+    final quantityController = TextEditingController();
+    final priceController = TextEditingController();
+    final discountController = TextEditingController(text: "0");
+    final paidController = TextEditingController(text: "0");
+    final notesController = TextEditingController();
 
     await showDialog(
-
       context: context,
-
       builder: (_) {
-
         return StatefulBuilder(
-
           builder: (context, setDialogState) {
-
             return AlertDialog(
-
-              title: const Text(
-                "فاتورة بيع جديدة",
-              ),
+              title: const Text("فاتورة بيع جديدة"),
 
               content: SingleChildScrollView(
-
                 child: Column(
-
-                  mainAxisSize:
-                      MainAxisSize.min,
-
-                  children: [                    DropdownButtonFormField<int>(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<int>(
                       value: selectedCustomer,
                       decoration: const InputDecoration(
                         labelText: "العميل",
@@ -97,8 +86,10 @@ class _SalesScreenState
                       ),
                       items: customers.map((customer) {
                         return DropdownMenuItem<int>(
-                          value: customer["id"],
-                          child: Text(customer["name"]),
+                          value: customer["id"] as int,
+                          child: Text(
+                            customer["name"].toString(),
+                          ),
                         );
                       }).toList(),
                       onChanged: (value) {
@@ -118,13 +109,29 @@ class _SalesScreenState
                       ),
                       items: products.map((product) {
                         return DropdownMenuItem<int>(
-                          value: product["id"],
-                          child: Text(product["name"]),
+                          value: product["id"] as int,
+                          child: Text(
+                            product["name"].toString(),
+                          ),
                         );
                       }).toList(),
                       onChanged: (value) {
                         setDialogState(() {
                           selectedProduct = value;
+
+                          if (value != null) {
+                            final product = products.firstWhere(
+                              (p) => p["id"] == value,
+                            );
+
+                            final sellPrice =
+                                product["sell_price"];
+
+                            if (sellPrice != null) {
+                              priceController.text =
+                                  sellPrice.toString();
+                            }
+                          }
                         });
                       },
                     ),
@@ -144,7 +151,10 @@ class _SalesScreenState
 
                     TextField(
                       controller: priceController,
-                      keyboardType: TextInputType.number,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: "سعر البيع",
                         border: OutlineInputBorder(),
@@ -155,7 +165,10 @@ class _SalesScreenState
 
                     TextField(
                       controller: discountController,
-                      keyboardType: TextInputType.number,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: "الخصم",
                         border: OutlineInputBorder(),
@@ -166,7 +179,10 @@ class _SalesScreenState
 
                     TextField(
                       controller: paidController,
-                      keyboardType: TextInputType.number,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: "المبلغ المدفوع",
                         border: OutlineInputBorder(),
@@ -183,14 +199,12 @@ class _SalesScreenState
                         border: OutlineInputBorder(),
                       ),
                     ),
-
                   ],
-
                 ),
-
               ),
 
-              actions: [                TextButton(
+              actions: [
+                TextButton(
                   onPressed: () {
                     Navigator.pop(context);
                   },
@@ -199,132 +213,283 @@ class _SalesScreenState
 
                 ElevatedButton(
                   onPressed: () async {
+                    // =========================
+                    // التحقق من العميل
+                    // =========================
 
-                    if (selectedCustomer == null ||
-                        selectedProduct == null) {
+                    if (selectedCustomer == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "من فضلك اختر العميل",
+                          ),
+                        ),
+                      );
                       return;
                     }
 
-                    final quantity =
-                        int.tryParse(
-                          quantityController.text,
+                    // =========================
+                    // التحقق من المنتج
+                    // =========================
+
+                    if (selectedProduct == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "من فضلك اختر المنتج",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    // =========================
+                    // قراءة البيانات
+                    // =========================
+
+                    final quantity = int.tryParse(
+                          quantityController.text.trim(),
                         ) ??
                         0;
 
-                    final price =
-                        double.tryParse(
-                          priceController.text,
+                    final price = double.tryParse(
+                          priceController.text.trim(),
                         ) ??
                         0;
 
-                    final discount =
-                        double.tryParse(
-                          discountController.text,
+                    final discount = double.tryParse(
+                          discountController.text.trim(),
                         ) ??
                         0;
 
-                    final paid =
-                        double.tryParse(
-                          paidController.text,
+                    final paid = double.tryParse(
+                          paidController.text.trim(),
                         ) ??
                         0;
 
-                    final total =
-                        (quantity * price) - discount;
+                    // =========================
+                    // التحقق من الكمية
+                    // =========================
 
-                    final saleId =
-                        await DatabaseHelper.instance
-                            .insertSale({
+                    if (quantity <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "من فضلك أدخل كمية صحيحة",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
 
-                      "customer_id":
-                          selectedCustomer,
+                    // =========================
+                    // التحقق من السعر
+                    // =========================
 
-                      "date":
-                          DateTime.now()
-                              .toIso8601String(),
+                    if (price <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "من فضلك أدخل سعر البيع",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
 
-                      "total":
-                          total,
+                    // =========================
+                    // التحقق من الخصم
+                    // =========================
 
-                      "discount":
-                          discount,
+                    if (discount < 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "الخصم غير صحيح",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
 
-                      "paid":
-                          paid,
+                    // =========================
+                    // حساب الإجمالي
+                    // =========================
 
-                      "remaining":
-                          total - paid,
+                    final subtotal = quantity * price;
 
-                      "notes":
-                          notesController.text,
+                    final total = subtotal - discount;
 
-                    });
+                    if (total < 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "الخصم أكبر من إجمالي الفاتورة",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
 
-                    await DatabaseHelper.instance
-                        .insertSaleItem({
+                    if (paid < 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "المبلغ المدفوع غير صحيح",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
 
-                      "sale_id":
-                          saleId,
+                    if (paid > total) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "المبلغ المدفوع أكبر من إجمالي الفاتورة",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
 
-                      "product_id":
-                          selectedProduct,
+                    // =========================
+                    // التحقق من المخزون
+                    // =========================
 
-                      "quantity":
-                          quantity,
-
-                      "sell_price":
-                          price,
-
-                    });
-
-                    await DatabaseHelper.instance
-                        .decreaseProductQuantity(
-                      selectedProduct!,
-                      quantity,
+                    final selectedProductData =
+                        products.firstWhere(
+                      (product) =>
+                          product["id"] == selectedProduct,
                     );
 
-                    if (!mounted) return;
+                    final stock =
+                        (selectedProductData["quantity"] ?? 0) as int;
 
-                    Navigator.pop(context);
+                    if (quantity > stock) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            "الكمية غير متوفرة في المخزون. المتاح: $stock",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
 
-                    await loadData();
+                    // =========================
+                    // حفظ الفاتورة
+                    // =========================
 
+                    try {
+                      final saleId =
+                          await DatabaseHelper.instance.insertSale({
+                        "customer_id": selectedCustomer,
+                        "date":
+                            DateTime.now().toIso8601String(),
+                        "total": total,
+                        "discount": discount,
+                        "paid": paid,
+                        "remaining": total - paid,
+                        "notes": notesController.text.trim(),
+                      });
+
+                      // =========================
+                      // حفظ تفاصيل الفاتورة
+                      // =========================
+
+                      await DatabaseHelper.instance.insertSaleItem({
+                        "sale_id": saleId,
+                        "product_id": selectedProduct,
+                        "quantity": quantity,
+                        "sell_price": price,
+                      });
+
+                      // =========================
+                      // خصم الكمية من المخزون
+                      // =========================
+
+                      await DatabaseHelper.instance
+                          .decreaseProductQuantity(
+                        selectedProduct!,
+                        quantity,
+                      );
+
+                      if (!context.mounted) return;
+
+                      Navigator.pop(context);
+
+                      // =========================
+                      // تحديث الشاشة
+                      // =========================
+
+                      await loadData();
+
+                      if (!mounted) return;
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            "تم حفظ فاتورة البيع رقم $saleId بنجاح",
+                          ),
+                        ),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            "حدث خطأ أثناء حفظ الفاتورة: $e",
+                          ),
+                        ),
+                      );
+                    }
                   },
-
-                  child: const Text(
-                    "حفظ",
-                  ),
-
+                  child: const Text("حفظ"),
                 ),
-
               ],
-
             );
-
           },
-
         );
-
       },
-
     );
 
+    quantityController.dispose();
+    priceController.dispose();
+    discountController.dispose();
+    paidController.dispose();
+    notesController.dispose();
   }
 
-  Future<void> deleteSale(
-      int id) async {
+  Future<void> deleteSale(int id) async {
+    try {
+      await DatabaseHelper.instance.deleteSale(id);
 
-    await DatabaseHelper.instance
-        .deleteSale(id);
+      await loadData();
 
-    await loadData();
+      if (!mounted) return;
 
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("تم حذف الفاتورة"),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("حدث خطأ أثناء الحذف: $e"),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-
-    return Scaffold(      appBar: AppBar(
+    return Scaffold(
+      appBar: AppBar(
         title: const Text("المبيعات"),
       ),
 
@@ -349,14 +514,12 @@ class _SalesScreenState
               : ListView.builder(
                   itemCount: sales.length,
                   itemBuilder: (context, index) {
-
                     final sale = sales[index];
 
                     return Card(
                       margin: const EdgeInsets.all(8),
 
                       child: ListTile(
-
                         leading: const CircleAvatar(
                           child: Icon(
                             Icons.point_of_sale,
@@ -371,7 +534,6 @@ class _SalesScreenState
                           crossAxisAlignment:
                               CrossAxisAlignment.start,
                           children: [
-
                             Text(
                               "الإجمالي: ${sale["total"]} جنيه",
                             ),
@@ -380,13 +542,13 @@ class _SalesScreenState
                               "المدفوع: ${sale["paid"]} جنيه",
                             ),
 
-                           Text(
-  "المتبقي: ${sale["remaining"]} جنيه",
-),
+                            Text(
+                              "المتبقي: ${sale["remaining"]} جنيه",
+                            ),
 
-Text(
-  "التاريخ: ${sale["date"]}",
-), 
+                            Text(
+                              "التاريخ: ${sale["date"]}",
+                            ),
 
                             if ((sale["notes"] ?? "")
                                 .toString()
@@ -394,12 +556,10 @@ Text(
                               Text(
                                 "ملاحظات: ${sale["notes"]}",
                               ),
-
                           ],
                         ),
 
                         onTap: () async {
-
                           await Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -411,57 +571,33 @@ Text(
                           );
 
                           await loadData();
-
                         },
 
                         trailing: Row(
-
-                          mainAxisSize:
-                              MainAxisSize.min,
-
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-
                             const Icon(
                               Icons.arrow_forward_ios,
                               size: 16,
                             ),
 
                             IconButton(
-
                               icon: const Icon(
                                 Icons.delete,
                                 color: Colors.red,
                               ),
-
                               onPressed: () async {
-
                                 await deleteSale(
                                   sale["id"],
                                 );
-
                               },
-
                             ),
-
                           ],
-
                         ),
-
                       ),
-
                     );
-
                   },
-
                 ),
-
     );
-
   }
-
 }
-
-
-
-
-
